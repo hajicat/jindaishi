@@ -306,6 +306,7 @@ export default function QuizPage() {
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
           <h1 className="text-lg font-bold text-gray-800">中国近代史刷题库</h1>
           <div className="flex items-center gap-3 text-sm text-gray-600">
+            <button onClick={() => router.push('/exam')} className="text-orange-600 hover:underline font-medium">模拟考试</button>
             <button onClick={() => router.push('/leaderboard')} className="text-blue-600 hover:underline">排行榜</button>
             <span>{user?.realName || user?.username}</span>
             <button onClick={handleLogout} className="text-red-500 hover:underline">退出</button>
