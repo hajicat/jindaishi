@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import quizData from '@/lib/quiz-data.json';
+import { Suspense } from 'react';
 
 interface Question {
   id: string;
@@ -37,12 +38,16 @@ function shuffleOptions(q: Question): Question {
   return { ...q, options: shuffled, a: newAnswer };
 }
 
-export default function ExamPage() {
+function ExamContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const shadowUserId = searchParams.get('shadow');
+
   const [phase, setPhase] = useState<'ready' | 'exam' | 'result'>('ready');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [answerTimes, setAnswerTimes] = useState<Record<string, number>>({});
   const [submitted, setSubmitted] = useState(false);
   const [result, setResult] = useState<null | {
     score: number; total: number;
@@ -50,14 +55,34 @@ export default function ExamPage() {
     multiCorrect: number; multiTotal: number;
     tfCorrect: number; tfTotal: number;
   }>(null);
-  const [timeLeft, setTimeLeft] = useState(90 * 60); // 90 minutes
+  const [timeLeft, setTimeLeft] = useState(90 * 60);
   const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
+  const [examStart, setExamStart] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Shadow state
+  const [shadowName, setShadowName] = useState('');
+  const [shadowTiming, setShadowTiming] = useState<Record<string, number>>({});
+  const [shadowProgress, setShadowProgress] = useState(0);
 
   // Check auth
   useEffect(() => {
     fetch('/api/me').then(r => { if (!r.ok) router.push('/login'); });
   }, [router]);
+
+  // Load shadow data
+  useEffect(() => {
+    if (!shadowUserId) return;
+    fetch(`/api/exam/shadow?userId=${shadowUserId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) {
+          setShadowName(data.name || '对手');
+          setShadowTiming(data.timing || {});
+        }
+      })
+      .catch(() => {});
+  }, [shadowUserId]);
 
   // Timer
   useEffect(() => {
@@ -75,6 +100,17 @@ export default function ExamPage() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [phase]);
 
+  // Shadow progress tracking
+  useEffect(() => {
+    if (phase !== 'exam' || !shadowUserId || Object.keys(shadowTiming).length === 0) return;
+    const interval = setInterval(() => {
+      const elapsed = (Date.now() - examStart) / 1000;
+      const shadowAnswered = Object.keys(shadowTiming).filter(qId => shadowTiming[qId] <= elapsed).length;
+      setShadowProgress(shadowAnswered);
+    }, 200);
+    return () => clearInterval(interval);
+  }, [phase, shadowUserId, shadowTiming, examStart]);
+
   function startExam() {
     const selected = [
       ...shuffle(singlePool).slice(0, 40).map(q => shuffleOptions(q)),
@@ -83,14 +119,23 @@ export default function ExamPage() {
     ];
     setQuestions(selected);
     setAnswers({});
+    setAnswerTimes({});
     setCurrentIdx(0);
     setPhase('exam');
     setTimeLeft(90 * 60);
     setMultiSelected(new Set());
+    setExamStart(Date.now());
+    setShadowProgress(0);
+  }
+
+  function recordAnswer(qId: string, answer: string) {
+    const elapsed = Math.floor((Date.now() - examStart) / 1000);
+    setAnswers(prev => ({ ...prev, [qId]: answer }));
+    setAnswerTimes(prev => prev[qId] ? prev : { ...prev, [qId]: elapsed });
   }
 
   function handleSingleAnswer(qId: string, answer: string) {
-    setAnswers(prev => ({ ...prev, [qId]: answer }));
+    recordAnswer(qId, answer);
   }
 
   function handleMultiToggle(qId: string, val: string) {
@@ -103,7 +148,7 @@ export default function ExamPage() {
 
   function handleMultiSubmit(qId: string) {
     const answer = Array.from(multiSelected).sort().join('');
-    setAnswers(prev => ({ ...prev, [qId]: answer }));
+    recordAnswer(qId, answer);
     setMultiSelected(new Set());
   }
 
@@ -115,36 +160,27 @@ export default function ExamPage() {
     let singleCorrect = 0, singleTotal = 0;
     let multiCorrect = 0, multiTotal = 0;
     let tfCorrect = 0, tfTotal = 0;
-    const details: Record<string, string> = {};
+    const details: Record<string, { answer: string; time: number }> = {};
 
     questions.forEach(q => {
       const userAnswer = answers[q.id] || '';
       const isCorrect = userAnswer === q.a;
-      details[q.id] = userAnswer || '未答';
+      details[q.id] = { answer: userAnswer || '未答', time: answerTimes[q.id] || 0 };
 
-      if (q.type === 'single') {
-        singleTotal++;
-        if (isCorrect) singleCorrect++;
-      } else if (q.type === 'multi') {
-        multiTotal++;
-        if (isCorrect) multiCorrect++;
-      } else {
-        tfTotal++;
-        if (isCorrect) tfCorrect++;
-      }
+      if (q.type === 'single') { singleTotal++; if (isCorrect) singleCorrect++; }
+      else if (q.type === 'multi') { multiTotal++; if (isCorrect) multiCorrect++; }
+      else { tfTotal++; if (isCorrect) tfCorrect++; }
     });
 
     const score = singleCorrect + multiCorrect + tfCorrect;
-    const total = 80;
 
-    setResult({ score, total, singleCorrect, singleTotal, multiCorrect, multiTotal, tfCorrect, tfTotal });
+    setResult({ score, total: 80, singleCorrect, singleTotal, multiCorrect, multiTotal, tfCorrect, tfTotal });
 
-    // Save to server
     await fetch('/api/exam', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        score, total,
+        score, total: 80,
         singleCorrect, singleTotal,
         multiCorrect, multiTotal,
         tfCorrect, tfTotal,
@@ -164,13 +200,19 @@ export default function ExamPage() {
   const currentQ = questions[currentIdx];
   const answeredCount = Object.keys(answers).length;
 
-  // ===== Ready Phase =====
+  // ===== Ready =====
   if (phase === 'ready') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">仿真模拟考试</h1>
-          <p className="text-gray-500 mb-6">模拟真实考试环境</p>
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">
+            {shadowUserId ? 'PK 模式' : '仿真模拟考试'}
+          </h1>
+          {shadowUserId ? (
+            <p className="text-gray-500 mb-6">正在加载对手数据...</p>
+          ) : (
+            <p className="text-gray-500 mb-6">模拟真实考试环境</p>
+          )}
 
           <div className="bg-gray-50 rounded-lg p-4 text-left text-sm text-gray-600 space-y-2 mb-6">
             <p><strong>考试题型：</strong></p>
@@ -179,27 +221,33 @@ export default function ExamPage() {
             <p>• 判断题 × 20</p>
             <p className="pt-2"><strong>考试时间：</strong>90 分钟</p>
             <p><strong>总分：</strong>80 分</p>
-            <p className="text-orange-500">⚠ 时间到自动交卷，请合理安排时间</p>
+            {shadowUserId && shadowName && (
+              <p className="text-purple-600 font-medium pt-2">
+                对手：{shadowName}（影子进度条实时显示对手答题节奏）
+              </p>
+            )}
           </div>
 
           <button
             onClick={startExam}
             className="w-full py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition"
           >
-            开始考试
+            {shadowUserId ? '开始 PK' : '开始考试'}
           </button>
         </div>
       </div>
     );
   }
 
-  // ===== Result Phase =====
+  // ===== Result =====
   if (phase === 'result' && result) {
     const percent = Math.round((result.score / result.total) * 100);
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
-          <h1 className="text-2xl font-bold text-gray-800 mb-4">考试结束</h1>
+          <h1 className="text-2xl font-bold text-gray-800 mb-4">
+            {shadowUserId ? 'PK 结束' : '考试结束'}
+          </h1>
 
           <div className={`text-5xl font-bold mb-2 ${percent >= 60 ? 'text-green-600' : 'text-red-500'}`}>
             {result.score}/{result.total}
@@ -226,7 +274,7 @@ export default function ExamPage() {
               再考一次
             </button>
             <button onClick={() => router.push('/leaderboard')} className="flex-1 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-              查看排行榜
+              排行榜
             </button>
           </div>
         </div>
@@ -234,7 +282,7 @@ export default function ExamPage() {
     );
   }
 
-  // ===== Exam Phase =====
+  // ===== Exam =====
   if (!currentQ) return null;
 
   const isMulti = currentQ.type === 'multi';
@@ -254,10 +302,26 @@ export default function ExamPage() {
             {formatTime(timeLeft)}
           </div>
         </div>
-        <div className="max-w-3xl mx-auto px-4 pb-2">
-          <div className="w-full bg-gray-200 rounded-full h-1.5">
-            <div className="bg-blue-500 h-1.5 rounded-full transition-all" style={{ width: `${((currentIdx + 1) / questions.length) * 100}%` }} />
+
+        {/* Progress bars */}
+        <div className="max-w-3xl mx-auto px-4 pb-2 space-y-1">
+          {/* My progress */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400 w-8">我</span>
+            <div className="flex-1 bg-gray-200 rounded-full h-2">
+              <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${((currentIdx + 1) / questions.length) * 100}%` }} />
+            </div>
           </div>
+          {/* Shadow progress */}
+          {shadowUserId && Object.keys(shadowTiming).length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-purple-400 w-8">影子</span>
+              <div className="flex-1 bg-gray-200 rounded-full h-2">
+                <div className="bg-purple-500 h-2 rounded-full transition-all" style={{ width: `${(shadowProgress / questions.length) * 100}%` }} />
+              </div>
+              <span className="text-xs text-purple-400">{shadowName}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -282,7 +346,6 @@ export default function ExamPage() {
       {/* Question card */}
       <div className="max-w-3xl mx-auto px-4">
         <div className="bg-white rounded-lg p-6 shadow-sm">
-          {/* Type badge */}
           <div className="mb-3">
             <span className={`text-xs px-2 py-0.5 rounded ${
               currentQ.type === 'single' ? 'bg-blue-100 text-blue-700' :
@@ -297,7 +360,6 @@ export default function ExamPage() {
             {currentIdx + 1}. {currentQ.q}
           </div>
 
-          {/* Options */}
           {isTf ? (
             <div className="space-y-2">
               {[
@@ -323,9 +385,7 @@ export default function ExamPage() {
                 return (
                   <button
                     key={val}
-                    onClick={() => {
-                      if (!currentAnswer) handleMultiToggle(currentQ.id, val);
-                    }}
+                    onClick={() => { if (!currentAnswer) handleMultiToggle(currentQ.id, val); }}
                     className={`w-full text-left px-4 py-3 rounded-lg border transition text-sm ${
                       isSelected ? 'bg-blue-50 border-blue-400' : 'border-gray-200 hover:bg-gray-50'
                     }`}
@@ -392,5 +452,13 @@ export default function ExamPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ExamPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-gray-500">加载中...</div>}>
+      <ExamContent />
+    </Suspense>
   );
 }

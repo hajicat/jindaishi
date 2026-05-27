@@ -112,6 +112,7 @@ export default function LeaderboardPage() {
                 <th className="py-3 px-3 text-center">多选</th>
                 <th className="py-3 px-3 text-center">判断</th>
                 <th className="py-3 px-3 text-center">考试次数</th>
+                <th className="py-3 px-3 text-center">PK</th>
                 <th className="py-3 px-3 text-right">最近考试</th>
               </tr>
             </thead>
@@ -154,6 +155,16 @@ export default function LeaderboardPage() {
                       <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
                         {entry.examCount} 次
                       </span>
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      {!isMe && entry.examCount > 0 && (
+                        <button
+                          onClick={() => router.push(`/exam?shadow=${entry.id}`)}
+                          className="bg-purple-100 text-purple-600 px-3 py-1 rounded-full text-xs font-medium hover:bg-purple-200 transition"
+                        >
+                          PK
+                        </button>
+                      )}
                     </td>
                     <td className="py-3 px-3 text-right text-gray-400 text-xs">
                       {timeAgo(entry.examDate)}
