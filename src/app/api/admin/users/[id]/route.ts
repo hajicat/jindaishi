@@ -116,6 +116,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
   await db.execute({ sql: 'DELETE FROM progress WHERE user_id = ?', args: [id] });
   await db.execute({ sql: 'DELETE FROM sessions WHERE user_id = ?', args: [id] });
+  await db.execute({ sql: 'DELETE FROM exam_results WHERE user_id = ?', args: [id] });
   await db.execute({ sql: 'DELETE FROM users WHERE id = ?', args: [id] });
 
   await db.execute({

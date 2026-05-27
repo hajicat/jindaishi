@@ -10,7 +10,6 @@ export async function GET() {
 
   const db = getDb();
 
-  // Get each user's best exam result
   const result = await db.execute(`
     SELECT u.id, u.username, u.real_name, u.class_name,
            e.score, e.total, e.single_correct, e.single_total,
@@ -19,18 +18,22 @@ export async function GET() {
            e2.exam_count
     FROM users u
     LEFT JOIN (
-      SELECT user_id, MAX(score) as max_score
-      FROM exam_results
-      GROUP BY user_id
-    ) best ON u.id = best.user_id
-    LEFT JOIN exam_results e ON best.user_id = e.user_id AND best.max_score = e.score
+      SELECT er.user_id, er.score, er.total, er.single_correct, er.single_total,
+             er.multi_correct, er.multi_total, er.tf_correct, er.tf_total, er.created_at
+      FROM exam_results er
+      INNER JOIN (
+        SELECT user_id, MAX(score) as max_score, MAX(created_at) as latest_at
+        FROM exam_results
+        GROUP BY user_id
+      ) best ON er.user_id = best.user_id AND er.score = best.max_score AND er.created_at = best.latest_at
+    ) e ON u.id = e.user_id
     LEFT JOIN (
       SELECT user_id, COUNT(*) as exam_count
       FROM exam_results
       GROUP BY user_id
     ) e2 ON u.id = e2.user_id
     WHERE u.role = 'student' AND u.status = 'active'
-    ORDER BY e.score DESC
+    ORDER BY COALESCE(e.score, 0) DESC
   `);
 
   const leaderboard = result.rows.map(row => ({

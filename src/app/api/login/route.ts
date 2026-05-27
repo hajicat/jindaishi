@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
-import { verifyPassword, createSession, hashPassword } from '@/lib/auth';
+import { verifyPassword, createSession } from '@/lib/auth';
 import { rateLimit } from '@/lib/rate-limit';
 
 export const runtime = 'edge';
@@ -36,7 +36,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '请输入账号和密码' }, { status: 400 });
     }
 
-    // Input length validation
     if (typeof username !== 'string' || username.length > 50) {
       return NextResponse.json({ error: '账号格式错误' }, { status: 400 });
     }
@@ -61,31 +60,17 @@ export async function POST(req: NextRequest) {
     }
 
     const storedHash = user.password_hash as string;
-    let valid = await verifyPassword(password, storedHash);
 
-    // Migration: if bcrypt fails on edge, try PBKDF2 with known default password
-    if (!valid && storedHash.startsWith('$2')) {
-      // Bcrypt hash can't be verified on edge runtime
-      // Admin needs to reset this user's password
+    // Legacy bcrypt hashes cannot be verified on Edge Runtime
+    if (storedHash.startsWith('$2')) {
       return NextResponse.json({
-        error: '密码格式需要升级，请联系管理员重置密码',
+        error: '密码格式已过期，请联系管理员重置密码',
       }, { status: 400 });
     }
 
+    const valid = await verifyPassword(password, storedHash);
     if (!valid) {
       return NextResponse.json({ error: '账号或密码错误' }, { status: 401 });
-    }
-
-    // Auto-migrate: re-hash bcrypt passwords to PBKDF2
-    if (storedHash.startsWith('$2')) {
-      try {
-        const newHash = await hashPassword(password);
-        const db = getDb();
-        await db.execute({
-          sql: 'UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?',
-          args: [newHash, new Date().toISOString(), user.id],
-        });
-      } catch {}
     }
 
     const session = await createSession(user.id as string, {
@@ -120,10 +105,7 @@ export async function POST(req: NextRequest) {
     });
 
     return response;
-  } catch (error: unknown) {
-    const errMsg = error instanceof Error ? error.message : String(error);
-    const errStack = error instanceof Error ? error.stack : '';
-    console.error('Login error:', errMsg, errStack);
-    return NextResponse.json({ error: '服务器错误', detail: errMsg }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: '服务器错误' }, { status: 500 });
   }
 }

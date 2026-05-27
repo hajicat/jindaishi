@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
            u.username, u.real_name
           FROM sessions s
           JOIN users u ON s.user_id = u.id
-          WHERE s.user_id = ? AND s.expires_at > datetime('now')
+          WHERE s.user_id = ? AND datetime(s.expires_at) > datetime('now')
           ORDER BY s.created_at DESC`,
     args: [userId],
   });

@@ -76,6 +76,7 @@ export default function QuizPage() {
   const [strategyTab, setStrategyTab] = useState<'all' | 'exclude' | 'rote'>('all');
 
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const drillScoreRef = useRef(0);
   const masteredRef = useRef<Set<string>>(new Set());
   const errorsRef = useRef<Record<string, number>>({});
   const flushingRef = useRef(false);
@@ -221,6 +222,7 @@ export default function QuizPage() {
     setDrillQuestions(shuffle(questions).map(q => shuffleOptions(q)));
     setDrillIndex(0);
     setDrillScore(0);
+    drillScoreRef.current = 0;
     setDrillAnswered(0);
     setDrillFinished(false);
     setDrillPerfect(false);
@@ -265,14 +267,15 @@ export default function QuizPage() {
     if (!q) return;
     const isCorrect = answer === q.a;
     if (isCorrect) {
-      setDrillScore(prev => prev + 1);
+      drillScoreRef.current += 1;
+      setDrillScore(drillScoreRef.current);
     } else {
       recordError(qId);
     }
     setDrillAnswered(prev => {
       const next = prev + 1;
       if (next === drillQuestions.length) {
-        const perfect = isCorrect ? drillScore + 1 === drillQuestions.length : drillScore === drillQuestions.length;
+        const perfect = drillScoreRef.current === drillQuestions.length;
         setDrillFinished(true);
         setDrillPerfect(perfect);
         if (perfect) {
@@ -552,7 +555,6 @@ function QuestionCard({
     }
   }
 
-  handleSubmit.isCalled = false;
   function handleSubmit(forceSingle?: string) {
     if (submitted) return;
     if (!isMulti && !forceSingle) return;
