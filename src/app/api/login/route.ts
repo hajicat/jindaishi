@@ -120,8 +120,10 @@ export async function POST(req: NextRequest) {
     });
 
     return response;
-  } catch (error) {
-    console.error('Login error:', error);
-    return NextResponse.json({ error: '服务器错误' }, { status: 500 });
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    const errStack = error instanceof Error ? error.stack : '';
+    console.error('Login error:', errMsg, errStack);
+    return NextResponse.json({ error: '服务器错误', detail: errMsg }, { status: 500 });
   }
 }
