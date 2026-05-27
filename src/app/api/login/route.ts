@@ -1,15 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { verifyPassword, createSession } from '@/lib/auth';
+import { rateLimit } from '@/lib/rate-limit';
 
 export const runtime = 'edge';
 
 export async function POST(req: NextRequest) {
   try {
-    const { username, password } = await req.json();
+    // Origin check (CSRF protection)
+    const origin = req.headers.get('origin');
+    if (origin && !origin.endsWith('.pages.dev') && !origin.endsWith('localhost')) {
+      // Allow Cloudflare Pages domains and localhost
+      const host = req.headers.get('host');
+      if (origin !== `https://${host}` && origin !== `http://${host}`) {
+        return NextResponse.json({ error: '非法请求' }, { status: 403 });
+      }
+    }
+
+    // Rate limit: 5 attempts per minute per IP
+    const ip = req.headers.get('cf-connecting-ip') || req.headers.get('x-forwarded-for') || 'unknown';
+    if (!rateLimit(`login:${ip}`, 5, 60_000)) {
+      return NextResponse.json({ error: '登录尝试过于频繁，请 1 分钟后再试' }, { status: 429 });
+    }
+
+    let body: { username?: string; password?: string };
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: '请求格式错误' }, { status: 400 });
+    }
+
+    const { username, password } = body;
 
     if (!username || !password) {
       return NextResponse.json({ error: '请输入账号和密码' }, { status: 400 });
+    }
+
+    // Input length validation
+    if (typeof username !== 'string' || username.length > 50) {
+      return NextResponse.json({ error: '账号格式错误' }, { status: 400 });
+    }
+    if (typeof password !== 'string' || password.length > 128) {
+      return NextResponse.json({ error: '密码格式错误' }, { status: 400 });
     }
 
     const db = getDb();

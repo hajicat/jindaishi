@@ -29,15 +29,39 @@ export async function POST(req: NextRequest) {
   const admin = await requireAdmin();
   if (!admin) return NextResponse.json({ error: '无权限' }, { status: 403 });
 
-  const { username, realName, className, password } = await req.json();
+  let body: { username?: string; realName?: string; className?: string; password?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: '请求格式错误' }, { status: 400 });
+  }
+
+  const { username, realName, className, password } = body;
 
   if (!username || !password) {
     return NextResponse.json({ error: '用户名和密码不能为空' }, { status: 400 });
   }
 
+  // Input validation
+  if (typeof username !== 'string' || username.length < 2 || username.length > 50) {
+    return NextResponse.json({ error: '用户名长度 2-50 个字符' }, { status: 400 });
+  }
+  if (typeof password !== 'string' || password.length < 6 || password.length > 128) {
+    return NextResponse.json({ error: '密码长度 6-128 个字符' }, { status: 400 });
+  }
+  if (realName && (typeof realName !== 'string' || realName.length > 50)) {
+    return NextResponse.json({ error: '姓名最长 50 个字符' }, { status: 400 });
+  }
+  if (className && (typeof className !== 'string' || className.length > 50)) {
+    return NextResponse.json({ error: '班级名最长 50 个字符' }, { status: 400 });
+  }
+  // Username: alphanumeric, digits, underscore, dash only
+  if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
+    return NextResponse.json({ error: '用户名只能包含字母、数字、下划线和横线' }, { status: 400 });
+  }
+
   const db = getDb();
 
-  // 检查用户名是否已存在
   const existing = await db.execute({
     sql: 'SELECT id FROM users WHERE username = ?',
     args: [username],
@@ -56,7 +80,6 @@ export async function POST(req: NextRequest) {
     args: [id, username, realName || '', className || '', passwordHash, 'student', 'active', now, now],
   });
 
-  // 记录操作日志
   await db.execute({
     sql: 'INSERT INTO admin_logs (id, admin_id, action, target_user_id, detail, created_at) VALUES (?, ?, ?, ?, ?, ?)',
     args: [uuidv4(), admin.id, 'add_user', id, `添加用户 ${username}`, now],

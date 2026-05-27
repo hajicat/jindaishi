@@ -518,9 +518,14 @@ function QuestionCard({
           {showEssayAnswer ? '隐藏答案' : '显示参考答案'}
         </button>
         {showEssayAnswer && (
-          <div className="mt-3 p-4 bg-green-50 rounded-lg text-sm text-gray-700 leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: `<strong>参考答案：</strong><br>${q.a}` }}
-          />
+          <div className="mt-3 p-4 bg-green-50 rounded-lg text-sm text-gray-700 leading-relaxed">
+            <strong>参考答案：</strong>
+            <ul className="list-decimal ml-5 mt-2 space-y-1">
+              {q.a.split(/<br\s*\/?>/i).map((line: string, i: number) => (
+                <li key={i}>{line.replace(/<[^>]*>/g, '')}</li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
     );
