@@ -69,7 +69,7 @@ export async function createSession(userId: string, deviceInfo?: { fingerprint: 
   // Check device limit
   if (deviceInfo && deviceInfo.fingerprint) {
     const existing = await db.execute({
-      sql: 'SELECT id, device_fingerprint FROM sessions WHERE user_id = ? AND expires_at > datetime("now") ORDER BY created_at ASC',
+      sql: "SELECT id, device_fingerprint FROM sessions WHERE user_id = ? AND expires_at > datetime('now') ORDER BY created_at ASC",
       args: [userId],
     });
 
