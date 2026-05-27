@@ -23,14 +23,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '登录尝试过于频繁，请 1 分钟后再试' }, { status: 429 });
     }
 
-    let body: { username?: string; password?: string };
+    let body: { username?: string; password?: string; deviceFingerprint?: string; deviceName?: string };
     try {
       body = await req.json();
     } catch {
       return NextResponse.json({ error: '请求格式错误' }, { status: 400 });
     }
 
-    const { username, password } = body;
+    const { username, password, deviceFingerprint, deviceName } = body;
 
     if (!username || !password) {
       return NextResponse.json({ error: '请输入账号和密码' }, { status: 400 });
@@ -65,7 +65,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '账号或密码错误' }, { status: 401 });
     }
 
-    const session = await createSession(user.id as string);
+    const session = await createSession(user.id as string, {
+      fingerprint: deviceFingerprint || '',
+      name: deviceName || '',
+    });
 
     const response = NextResponse.json({
       user: {

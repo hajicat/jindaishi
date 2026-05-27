@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   token_hash TEXT NOT NULL,
   expires_at TEXT NOT NULL,
   created_at TEXT NOT NULL,
+  device_fingerprint TEXT DEFAULT '',
+  device_name TEXT DEFAULT '',
   FOREIGN KEY(user_id) REFERENCES users(id)
 );
 

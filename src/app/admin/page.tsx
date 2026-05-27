@@ -13,6 +13,16 @@ interface User {
   created_at: string;
 }
 
+interface Device {
+  id: string;
+  device_name: string;
+  device_fingerprint: string;
+  created_at: string;
+  expires_at: string;
+  username: string;
+  real_name: string;
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
@@ -20,6 +30,11 @@ export default function AdminPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ username: '', realName: '', className: '', password: '' });
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  // Device modal
+  const [deviceUser, setDeviceUser] = useState<{ id: string; name: string } | null>(null);
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [deviceLoading, setDeviceLoading] = useState(false);
 
   useEffect(() => {
     fetch('/api/me')
@@ -89,6 +104,28 @@ export default function AdminPage() {
     }
   }
 
+  async function loadDevices(userId: string, userName: string) {
+    setDeviceUser({ id: userId, name: userName });
+    setDeviceLoading(true);
+    const res = await fetch(`/api/admin/devices?userId=${userId}`);
+    if (res.ok) {
+      setDevices(await res.json());
+    }
+    setDeviceLoading(false);
+  }
+
+  async function unbindDevice(sessionId: string) {
+    if (!confirm('确定要解绑此设备吗？该设备将被强制下线。')) return;
+    const res = await fetch('/api/admin/devices', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId }),
+    });
+    if (res.ok && deviceUser) {
+      loadDevices(deviceUser.id, deviceUser.name);
+    }
+  }
+
   async function handleLogout() {
     await fetch('/api/logout', { method: 'POST' });
     router.push('/login');
@@ -115,7 +152,6 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Add user */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-bold text-gray-800">用户管理</h2>
@@ -154,7 +190,6 @@ export default function AdminPage() {
             </form>
           )}
 
-          {/* User list */}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -192,6 +227,9 @@ export default function AdminPage() {
                           <button onClick={() => resetPassword(u.id, u.username)} className="text-xs text-blue-600 hover:underline">
                             重置密码
                           </button>
+                          <button onClick={() => loadDevices(u.id, u.real_name || u.username)} className="text-xs text-purple-600 hover:underline">
+                            设备
+                          </button>
                           <button onClick={() => deleteUser(u.id, u.username)} className="text-xs text-red-600 hover:underline">
                             删除
                           </button>
@@ -209,6 +247,50 @@ export default function AdminPage() {
           )}
         </div>
       </div>
+
+      {/* Device Modal */}
+      {deviceUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setDeviceUser(null)}>
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-lg w-full mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-800">{deviceUser.name} — 登录设备</h3>
+              <button onClick={() => setDeviceUser(null)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+            </div>
+
+            {deviceLoading ? (
+              <div className="text-center text-gray-400 py-8">加载中...</div>
+            ) : devices.length === 0 ? (
+              <div className="text-center text-gray-400 py-8">暂无登录设备</div>
+            ) : (
+              <div className="space-y-3">
+                {devices.map(d => (
+                  <div key={d.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <div className="font-medium text-sm text-gray-800">{d.device_name || '未知设备'}</div>
+                      <div className="text-xs text-gray-400">
+                        登录于 {new Date(d.created_at).toLocaleString('zh-CN')}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        过期于 {new Date(d.expires_at).toLocaleString('zh-CN')}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => unbindDevice(d.id)}
+                      className="text-xs text-red-500 hover:underline"
+                    >
+                      解绑
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-4 text-xs text-gray-400">
+              每个账号最多绑定 2 台设备。解绑后该设备需要重新登录。
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -3,6 +3,32 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+function getDeviceFingerprint(): string {
+  const ua = navigator.userAgent;
+  const screen = `${window.screen.width}x${window.screen.height}x${window.screen.colorDepth}`;
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const raw = `${ua}|${screen}|${timezone}`;
+  // Simple hash
+  let hash = 0;
+  for (let i = 0; i < raw.length; i++) {
+    const char = raw.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0;
+  }
+  return `fp_${Math.abs(hash).toString(36)}`;
+}
+
+function getDeviceName(): string {
+  const ua = navigator.userAgent;
+  if (/iPhone/.test(ua)) return 'iPhone';
+  if (/iPad/.test(ua)) return 'iPad';
+  if (/Android/.test(ua)) return 'Android 设备';
+  if (/Macintosh/.test(ua)) return 'Mac';
+  if (/Windows/.test(ua)) return 'Windows 电脑';
+  if (/Linux/.test(ua)) return 'Linux';
+  return '未知设备';
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState('');
@@ -19,7 +45,12 @@ export default function LoginPage() {
       const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({
+          username,
+          password,
+          deviceFingerprint: getDeviceFingerprint(),
+          deviceName: getDeviceName(),
+        }),
       });
 
       const data = await res.json();
