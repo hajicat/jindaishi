@@ -26,6 +26,7 @@ const singleData = quizData.filter(q => q.type === 'single') as Question[];
 const multiData = quizData.filter(q => q.type === 'multi') as Question[];
 const tfData = quizData.filter(q => q.type === 'tf') as Question[];
 const essayData = quizData.filter(q => q.type === 'essay') as Question[];
+const allQuestions = [...singleData, ...multiData, ...tfData, ...essayData];
 const allChoiceQuestions = [...singleData, ...multiData, ...tfData];
 
 function shuffle<T>(arr: T[]): T[] {
@@ -147,7 +148,7 @@ export default function QuizPage() {
 
   function handleFullAnswer(qId: string, answer: string) {
     setFullAnswers(prev => ({ ...prev, [qId]: answer }));
-    const q = allChoiceQuestions.find(x => x.id === qId);
+    const q = allQuestions.find(x => x.id === qId);
     if (q && answer !== q.a) {
       setFullSessionMistakes(prev => new Set(prev).add(qId));
       recordError(qId);
@@ -161,7 +162,7 @@ export default function QuizPage() {
     }
     const msg = `本次练习共 ${fullSessionMistakes.size} 道错题。\n\n是否进入【死磕模式】？\n（错题必须全部答对才能通关）`;
     if (confirm(msg)) {
-      const mistakes = allChoiceQuestions.filter(q => fullSessionMistakes.has(q.id));
+      const mistakes = allChoiceQuestions.filter(q => fullSessionMistakes.has(q.id)) as Question[];
       startDrill(mistakes, '死磕错题');
     }
   }
@@ -259,7 +260,7 @@ export default function QuizPage() {
     return <div className="min-h-screen flex items-center justify-center text-gray-500">加载中...</div>;
   }
 
-  const totalChoice = allChoiceQuestions.length;
+  const totalChoice = allQuestions.length;
   const masteredCount = masteredIds.size;
   const progressPercent = Math.round((masteredCount / totalChoice) * 100);
 
