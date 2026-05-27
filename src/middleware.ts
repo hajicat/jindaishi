@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Paths that require authentication
-const protectedPaths = ['/admin', '/quiz'];
+const protectedPaths = ['/admin', '/quiz', '/leaderboard'];
 // Paths that require admin role
 const adminPaths = ['/admin'];
 
@@ -25,5 +25,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/quiz/:path*'],
+  matcher: ['/admin/:path*', '/quiz/:path*', '/leaderboard/:path*'],
 };
