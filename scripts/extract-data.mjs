@@ -3,7 +3,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const htmlPath = join(__dirname, '..', '..', '中国近代史刷题库.html');
+const htmlPath = join(__dirname, '..', '..', '5工刷题.html');
 const html = readFileSync(htmlPath, 'utf-8');
 
 function extractArray(varName) {
