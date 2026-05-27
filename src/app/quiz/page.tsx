@@ -76,6 +76,9 @@ export default function QuizPage() {
   const [strategyTab, setStrategyTab] = useState<'all' | 'exclude' | 'rote'>('all');
 
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const masteredRef = useRef<Set<string>>(new Set());
+  const errorsRef = useRef<Record<string, number>>({});
+  const flushingRef = useRef(false);
 
   // Load user
   useEffect(() => {
@@ -98,8 +101,31 @@ export default function QuizPage() {
       .catch(() => {});
   }, []);
 
-  // Auto sync progress
+  // Flush progress to server immediately (used on page close)
+  const flushProgress = useCallback(() => {
+    if (flushingRef.current) return;
+    flushingRef.current = true;
+    const masteredObj: Record<string, boolean> = {};
+    masteredRef.current.forEach(id => { masteredObj[id] = true; });
+    const body = JSON.stringify({ mastered: masteredObj, mistakes: errorsRef.current, stats: {} });
+    try {
+      const blob = new Blob([body], { type: 'application/json' });
+      navigator.sendBeacon('/api/progress', blob);
+    } catch {
+      fetch('/api/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        keepalive: true,
+      }).catch(() => {});
+    }
+    setTimeout(() => { flushingRef.current = false; }, 1000);
+  }, []);
+
+  // Auto sync progress (debounced 3s)
   const syncProgress = useCallback((mastered: Set<string>, errors: Record<string, number>) => {
+    masteredRef.current = mastered;
+    errorsRef.current = errors;
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => {
       const masteredObj: Record<string, boolean> = {};
@@ -111,6 +137,13 @@ export default function QuizPage() {
       }).catch(() => {});
     }, 3000);
   }, []);
+
+  // Save on page close
+  useEffect(() => {
+    const handler = () => { flushProgress(); };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [flushProgress]);
 
   const recordError = useCallback((id: string) => {
     setErrorCounts(prev => {
@@ -152,6 +185,8 @@ export default function QuizPage() {
     if (q && answer !== q.a) {
       setFullSessionMistakes(prev => new Set(prev).add(qId));
       recordError(qId);
+    } else if (q && answer === q.a) {
+      markMastered([qId]);
     }
   }
 
