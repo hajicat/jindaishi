@@ -31,6 +31,23 @@ CREATE TABLE IF NOT EXISTS progress (
   FOREIGN KEY(user_id) REFERENCES users(id)
 );
 
+-- 考试成绩表
+CREATE TABLE IF NOT EXISTS exam_results (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  score INTEGER NOT NULL,
+  total INTEGER NOT NULL,
+  single_correct INTEGER DEFAULT 0,
+  single_total INTEGER DEFAULT 0,
+  multi_correct INTEGER DEFAULT 0,
+  multi_total INTEGER DEFAULT 0,
+  tf_correct INTEGER DEFAULT 0,
+  tf_total INTEGER DEFAULT 0,
+  details_json TEXT DEFAULT '{}',
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(user_id) REFERENCES users(id)
+);
+
 -- 管理员操作日志
 CREATE TABLE IF NOT EXISTS admin_logs (
   id TEXT PRIMARY KEY,

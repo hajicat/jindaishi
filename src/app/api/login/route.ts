@@ -9,10 +9,10 @@ export async function POST(req: NextRequest) {
   try {
     // Origin check (CSRF protection)
     const origin = req.headers.get('origin');
-    if (origin && !origin.endsWith('.pages.dev') && !origin.endsWith('localhost')) {
-      // Allow Cloudflare Pages domains and localhost
+    if (origin) {
       const host = req.headers.get('host');
-      if (origin !== `https://${host}` && origin !== `http://${host}`) {
+      const allowed = [`https://${host}`, `http://${host}`, `https://jindaishi.pages.dev`];
+      if (!allowed.includes(origin)) {
         return NextResponse.json({ error: '非法请求' }, { status: 403 });
       }
     }
