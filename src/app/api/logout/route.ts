@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { destroySession } from '@/lib/auth';
 
+export const runtime = 'edge';
+
 export async function POST() {
   const cookieStore = await cookies();
   const sessionId = cookieStore.get('session_id')?.value;

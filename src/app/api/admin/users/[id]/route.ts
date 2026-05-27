@@ -3,6 +3,8 @@ import { getDb } from '@/lib/db';
 import { getCurrentUser, hashPassword } from '@/lib/auth';
 import { v4 as uuidv4 } from 'uuid';
 
+export const runtime = 'edge';
+
 async function requireAdmin() {
   const user = await getCurrentUser();
   if (!user || user.role !== 'admin') return null;
