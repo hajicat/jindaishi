@@ -72,6 +72,9 @@ export default function QuizPage() {
   const [drillPerfect, setDrillPerfect] = useState(false);
   const [drillType, setDrillType] = useState<string>('');
 
+  // Mistake book state
+  const [mistakeLog, setMistakeLog] = useState<Question[]>([]);
+
   // Strategy state
   const [strategyTab, setStrategyTab] = useState<'all' | 'exclude' | 'rote'>('all');
 
@@ -226,6 +229,7 @@ export default function QuizPage() {
     setDrillAnswered(0);
     setDrillFinished(false);
     setDrillPerfect(false);
+    setMistakeLog([]);
     setDrillType(label);
   }
 
@@ -271,6 +275,7 @@ export default function QuizPage() {
       setDrillScore(drillScoreRef.current);
     } else {
       recordError(qId);
+      setMistakeLog(prev => prev.some(m => m.id === q.id) ? prev : [...prev, q]);
     }
     setDrillAnswered(prev => {
       const next = prev + 1;
@@ -418,6 +423,36 @@ export default function QuizPage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Mistake Book - shown during drill mode when there are mistakes */}
+        {mode.startsWith('drill') && mistakeLog.length > 0 && (
+          <div className="mt-4">
+            <div className="bg-red-500 text-white px-4 py-2 rounded-lg font-bold text-sm mb-3">
+              错题本 ({mistakeLog.length} 道)
+            </div>
+            <div className="space-y-3">
+              {mistakeLog.map((q, idx) => {
+                const correctText = q.type === 'tf'
+                  ? (q.a === 'Y' ? '正确' : '错误')
+                  : q.a.split('').map(c => {
+                      const i = c.charCodeAt(0) - 65;
+                      return q.options ? `${c}. ${q.options[i]}` : c;
+                    }).join('、');
+                return (
+                  <div key={q.id} className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-red-500">
+                    <div className="font-medium text-gray-800 mb-2">
+                      <span className="text-red-500 font-bold">[错题 {idx + 1}]</span> {q.q}
+                    </div>
+                    <div className="bg-green-50 rounded p-3 text-sm">
+                      <span className="font-bold text-green-700">正确答案：{q.a}</span>
+                      <div className="mt-1 text-gray-600">{correctText}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
