@@ -62,7 +62,7 @@ function ExamContent() {
 
   // Shadow state
   const [shadowName, setShadowName] = useState('');
-  const [shadowTiming, setShadowTiming] = useState<Record<string, number>>({});
+  const [shadowTimeline, setShadowTimeline] = useState<number[]>([]); // sorted seconds per answer
   const [shadowProgress, setShadowProgress] = useState(0);
 
   // Check auth
@@ -76,9 +76,11 @@ function ExamContent() {
     fetch(`/api/exam/shadow?userId=${shadowUserId}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (data) {
+        if (data && data.timing) {
           setShadowName(data.name || '对手');
-          setShadowTiming(data.timing || {});
+          // Convert timing map to sorted array of seconds (by answer order)
+          const times = Object.values(data.timing as Record<string, number>).sort((a, b) => a - b);
+          setShadowTimeline(times);
         }
       })
       .catch(() => {});
@@ -102,14 +104,19 @@ function ExamContent() {
 
   // Shadow progress tracking
   useEffect(() => {
-    if (phase !== 'exam' || !shadowUserId || Object.keys(shadowTiming).length === 0) return;
+    if (phase !== 'exam' || !shadowUserId || shadowTimeline.length === 0) return;
     const interval = setInterval(() => {
       const elapsed = (Date.now() - examStart) / 1000;
-      const shadowAnswered = Object.keys(shadowTiming).filter(qId => shadowTiming[qId] <= elapsed).length;
-      setShadowProgress(shadowAnswered);
+      // Count how many shadow answers happened before current elapsed time
+      let count = 0;
+      for (const t of shadowTimeline) {
+        if (t <= elapsed) count++;
+        else break;
+      }
+      setShadowProgress(count);
     }, 200);
     return () => clearInterval(interval);
-  }, [phase, shadowUserId, shadowTiming, examStart]);
+  }, [phase, shadowUserId, shadowTimeline, examStart]);
 
   function startExam() {
     const selected = [
@@ -313,11 +320,11 @@ function ExamContent() {
             </div>
           </div>
           {/* Shadow progress */}
-          {shadowUserId && Object.keys(shadowTiming).length > 0 && (
+          {shadowUserId && shadowTimeline.length > 0 && (
             <div className="flex items-center gap-2">
               <span className="text-xs text-purple-400 w-8">影子</span>
               <div className="flex-1 bg-gray-200 rounded-full h-2">
-                <div className="bg-purple-500 h-2 rounded-full transition-all" style={{ width: `${(shadowProgress / questions.length) * 100}%` }} />
+                <div className="bg-purple-500 h-2 rounded-full transition-all" style={{ width: `${(shadowProgress / shadowTimeline.length) * 100}%` }} />
               </div>
               <span className="text-xs text-purple-400">{shadowName}</span>
             </div>
