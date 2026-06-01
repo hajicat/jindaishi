@@ -78,7 +78,7 @@ function ExamContent() {
       .then(data => {
         if (data && data.timing) {
           setShadowName(data.name || '对手');
-          // Convert timing map to sorted array of seconds (by answer order)
+          // Use absolute timing — shadow starts at 0, accumulates as user's elapsed passes opponent's answer times
           const times = Object.values(data.timing as Record<string, number>).sort((a, b) => a - b);
           setShadowTimeline(times);
         }
