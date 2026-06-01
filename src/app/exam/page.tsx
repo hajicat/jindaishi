@@ -104,17 +104,16 @@ function ExamContent() {
 
   // Shadow progress tracking
   useEffect(() => {
-    if (phase !== 'exam' || !shadowUserId || shadowTimeline.length === 0) return;
+    if (phase !== 'exam' || !shadowUserId || shadowTimeline.length === 0 || examStart <= 0) return;
     const interval = setInterval(() => {
       const elapsed = (Date.now() - examStart) / 1000;
-      // Count how many shadow answers happened before current elapsed time
+      if (elapsed < 0) return;
       let count = 0;
       for (const t of shadowTimeline) {
-        if (t <= elapsed) count++;
-        else break;
+        if (t >= 0 && t <= elapsed) count++;
       }
       setShadowProgress(count);
-    }, 200);
+    }, 500);
     return () => clearInterval(interval);
   }, [phase, shadowUserId, shadowTimeline, examStart]);
 
@@ -314,17 +313,17 @@ function ExamContent() {
         <div className="max-w-3xl mx-auto px-4 pb-2 space-y-1">
           {/* My progress */}
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400 w-8">我</span>
+            <span className="text-xs text-gray-500 w-16">我 {answeredCount}/{questions.length}</span>
             <div className="flex-1 bg-gray-200 rounded-full h-2">
-              <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${((currentIdx + 1) / questions.length) * 100}%` }} />
+              <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${(answeredCount / questions.length) * 100}%` }} />
             </div>
           </div>
           {/* Shadow progress */}
           {shadowUserId && shadowTimeline.length > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-purple-400 w-8">影子</span>
+              <span className="text-xs text-purple-500 w-16">影子 {shadowProgress}/{questions.length}</span>
               <div className="flex-1 bg-gray-200 rounded-full h-2">
-                <div className="bg-purple-500 h-2 rounded-full transition-all" style={{ width: `${(shadowProgress / shadowTimeline.length) * 100}%` }} />
+                <div className="bg-purple-500 h-2 rounded-full transition-all" style={{ width: `${(shadowProgress / questions.length) * 100}%` }} />
               </div>
               <span className="text-xs text-purple-400">{shadowName}</span>
             </div>
