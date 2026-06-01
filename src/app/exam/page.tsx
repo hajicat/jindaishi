@@ -62,26 +62,47 @@ function ExamContent() {
 
   // Shadow state
   const [shadowName, setShadowName] = useState('');
-  const [shadowTimeline, setShadowTimeline] = useState<number[]>([]); // sorted seconds per answer
-  const [shadowProgress, setShadowProgress] = useState(0);
+  const [shadowTotal, setShadowTotal] = useState(80); // opponent's total questions
+  const shadowProgressRef = useRef(0); // current shadow answer count
+  const shadowProgressMapRef = useRef<number[]>([]); // index = elapsed seconds, value = answer count at that second
+  const [shadowProgress, setShadowProgress] = useState(0); // for rendering
 
   // Check auth
   useEffect(() => {
     fetch('/api/me').then(r => { if (!r.ok) router.push('/login'); });
   }, [router]);
 
-  // Load shadow data
+  // Load shadow data — precompute a per-second progress lookup table
   useEffect(() => {
     if (!shadowUserId) return;
     fetch(`/api/exam/shadow?userId=${shadowUserId}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (data && data.timing) {
-          setShadowName(data.name || '对手');
-          // Use absolute timing — shadow starts at 0, accumulates as user's elapsed passes opponent's answer times
-          const times = Object.values(data.timing as Record<string, number>).sort((a, b) => a - b);
-          setShadowTimeline(times);
+        if (!data || !data.timing) return;
+        setShadowName(data.name || '对手');
+        setShadowTotal(data.total || 80);
+
+        // Parse opponent's answer timestamps (absolute seconds from their exam start)
+        const answerTimes = Object.values(data.timing as Record<string, number>)
+          .filter(t => typeof t === 'number' && t >= 0)
+          .sort((a, b) => a - b);
+
+        if (answerTimes.length === 0) return;
+
+        // Build progress map: progressMap[s] = number of answers completed by second s
+        // Max exam time = 90 min = 5400 seconds
+        const maxSec = Math.min(Math.ceil(answerTimes[answerTimes.length - 1]) + 1, 5400);
+        const map: number[] = new Array(maxSec + 1).fill(0);
+        let count = 0;
+        let timeIdx = 0;
+        for (let s = 0; s <= maxSec; s++) {
+          while (timeIdx < answerTimes.length && answerTimes[timeIdx] <= s) {
+            count++;
+            timeIdx++;
+          }
+          map[s] = count;
         }
+        shadowProgressMapRef.current = map;
       })
       .catch(() => {});
   }, [shadowUserId]);
@@ -102,20 +123,22 @@ function ExamContent() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [phase]);
 
-  // Shadow progress tracking
+  // Shadow progress tracking — O(1) lookup per tick
   useEffect(() => {
-    if (phase !== 'exam' || !shadowUserId || shadowTimeline.length === 0 || examStart <= 0) return;
+    if (phase !== 'exam' || !shadowUserId || shadowProgressMapRef.current.length === 0 || examStart <= 0) return;
     const interval = setInterval(() => {
-      const elapsed = (Date.now() - examStart) / 1000;
+      const elapsed = Math.floor((Date.now() - examStart) / 1000);
       if (elapsed < 0) return;
-      let count = 0;
-      for (const t of shadowTimeline) {
-        if (t >= 0 && t <= elapsed) count++;
+      const map = shadowProgressMapRef.current;
+      const sec = Math.min(elapsed, map.length - 1);
+      const progress = map[sec] ?? map[map.length - 1];
+      if (progress !== shadowProgressRef.current) {
+        shadowProgressRef.current = progress;
+        setShadowProgress(progress);
       }
-      setShadowProgress(count);
     }, 500);
     return () => clearInterval(interval);
-  }, [phase, shadowUserId, shadowTimeline, examStart]);
+  }, [phase, shadowUserId, examStart]);
 
   function startExam() {
     const selected = [
@@ -131,6 +154,7 @@ function ExamContent() {
     setTimeLeft(90 * 60);
     setMultiSelected(new Set());
     setExamStart(Date.now());
+    shadowProgressRef.current = 0;
     setShadowProgress(0);
   }
 
@@ -319,11 +343,11 @@ function ExamContent() {
             </div>
           </div>
           {/* Shadow progress - only show during exam */}
-          {phase === 'exam' && shadowUserId && shadowTimeline.length > 0 && (
+          {phase === 'exam' && shadowUserId && shadowProgressMapRef.current.length > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-purple-500 w-16">影子 {shadowProgress}/{questions.length}</span>
+              <span className="text-xs text-purple-500 w-16">影子 {shadowProgress}/{shadowTotal}</span>
               <div className="flex-1 bg-gray-200 rounded-full h-2">
-                <div className="bg-purple-500 h-2 rounded-full transition-all" style={{ width: `${(shadowProgress / questions.length) * 100}%` }} />
+                <div className="bg-purple-500 h-2 rounded-full transition-all" style={{ width: `${(shadowProgress / shadowTotal) * 100}%` }} />
               </div>
               <span className="text-xs text-purple-400">{shadowName}</span>
             </div>
