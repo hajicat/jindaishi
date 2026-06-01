@@ -318,8 +318,8 @@ function ExamContent() {
               <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${(answeredCount / questions.length) * 100}%` }} />
             </div>
           </div>
-          {/* Shadow progress */}
-          {shadowUserId && shadowTimeline.length > 0 && (
+          {/* Shadow progress - only show during exam */}
+          {phase === 'exam' && shadowUserId && shadowTimeline.length > 0 && (
             <div className="flex items-center gap-2">
               <span className="text-xs text-purple-500 w-16">影子 {shadowProgress}/{questions.length}</span>
               <div className="flex-1 bg-gray-200 rounded-full h-2">
