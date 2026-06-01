@@ -89,6 +89,10 @@ function ExamContent() {
 
         if (answerTimes.length === 0) return;
 
+        // DEBUG: log shadow data
+        console.log('[PK Shadow] opponent answer times (first 20):', answerTimes.slice(0, 20));
+        console.log('[PK Shadow] total answers:', answerTimes.length, 'total:', data.total);
+
         // Build progress map: progressMap[s] = number of answers completed by second s
         // Max exam time = 90 min = 5400 seconds
         const maxSec = Math.min(Math.ceil(answerTimes[answerTimes.length - 1]) + 1, 5400);
@@ -102,6 +106,7 @@ function ExamContent() {
           }
           map[s] = count;
         }
+        console.log('[PK Shadow] progress map[0..30]:', map.slice(0, 31));
         shadowProgressMapRef.current = map;
       })
       .catch(() => {});
@@ -132,6 +137,10 @@ function ExamContent() {
       const map = shadowProgressMapRef.current;
       const sec = Math.min(elapsed, map.length - 1);
       const progress = map[sec] ?? map[map.length - 1];
+      // DEBUG: log first few ticks
+      if (elapsed <= 20 || progress !== shadowProgressRef.current) {
+        console.log(`[PK Shadow] elapsed=${elapsed}s, map[${sec}]=${progress}, mapLen=${map.length}`);
+      }
       if (progress !== shadowProgressRef.current) {
         shadowProgressRef.current = progress;
         setShadowProgress(progress);
