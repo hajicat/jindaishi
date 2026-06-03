@@ -272,7 +272,7 @@ function ExamContent() {
           {/* Bank selector */}
           <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-3 mb-4 text-left">
             <div className="text-xs text-gray-500 mb-2">当前题库：</div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {(Object.keys(banksData) as BankKey[]).map(key => (
                 <button
                   key={key}

@@ -357,8 +357,8 @@ export default function QuizPage() {
       <div className="max-w-4xl mx-auto px-4 mt-4">
         {/* Bank switcher */}
         <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 mb-4">
-          <div className="text-sm font-bold text-gray-700 mb-2">选择题库：</div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="text-sm font-bold text-gray-700 mb-2">先选题库：</div>
+          <div className="grid grid-cols-3 gap-2">
             {bankKeys.map(key => {
               const bank = banksData[key];
               const q = getBankQuestions(key);
@@ -377,7 +377,7 @@ export default function QuizPage() {
               );
             })}
           </div>
-          <div className="text-xs text-gray-400 mt-2">两个题库的进度和错题互不影响</div>
+          <div className="text-xs text-gray-400 mt-2">三个题库的进度和错题互不影响</div>
         </div>
 
         {/* Progress bar */}
