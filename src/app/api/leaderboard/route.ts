@@ -38,8 +38,8 @@ export async function GET() {
   `);
 
   const bankLabels: Record<string, string> = {
-    formal: '正式题库',
-    knowledge: '知识点题库',
+    combined: '纲要+小题',
+    formal: '近代史题库',
   };
 
   const leaderboard = result.rows.map(row => ({

@@ -22,7 +22,7 @@ interface UserInfo {
 }
 
 type Mode = 'full' | 'drill-single' | 'drill-multi' | 'drill-tf' | 'strategy';
-type BankKey = 'formal' | 'knowledge';
+type BankKey = 'combined' | 'formal';
 
 const bankKeys = Object.keys(banksData) as BankKey[];
 

@@ -15,7 +15,7 @@ interface Question {
   bank?: string;
 }
 
-type BankKey = 'formal' | 'knowledge';
+type BankKey = 'combined' | 'formal';
 
 function getExamPools(bankKey: BankKey) {
   const bank = banksData[bankKey];
@@ -56,7 +56,7 @@ function ExamContent() {
   const [bankKey, setBankKey] = useState<BankKey>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('exam_active_bank') as BankKey;
-      if (saved && (saved === 'formal' || saved === 'knowledge')) return saved;
+      if (saved && (saved === 'combined' || saved === 'formal')) return saved;
     }
     return 'formal';
   });
@@ -256,7 +256,7 @@ function ExamContent() {
 
   // ===== Ready =====
   if (phase === 'ready') {
-    const currentBankLabel = banksData[bankKey]?.label || '正式选择题题库';
+    const currentBankLabel = banksData[bankKey]?.label || '纲要 + 小题题库';
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
