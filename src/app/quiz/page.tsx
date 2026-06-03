@@ -276,10 +276,12 @@ export default function QuizPage() {
       } else {
         const reviewCount = Math.min(4, errorPool.length);
         const reviewItems = getWeightedBatch(errorPool, reviewCount);
-        const newItems = shuffle(newPool).slice(0, 10 - reviewItems.length);
+        const usedIds = new Set(reviewItems.map(q => q.id));
+        const newItems = shuffle(newPool).filter(q => !usedIds.has(q.id)).slice(0, 10 - reviewItems.length);
+        newItems.forEach(q => usedIds.add(q.id));
         batch = [...reviewItems, ...newItems];
         if (batch.length < 10) {
-          const remain = source.filter(x => !batch.includes(x));
+          const remain = source.filter(q => !usedIds.has(q.id));
           batch = [...batch, ...shuffle(remain).slice(0, 10 - batch.length)];
         }
       }
