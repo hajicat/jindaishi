@@ -15,7 +15,7 @@ interface Question {
   bank?: string;
 }
 
-type BankKey = 'combined' | 'formal';
+type BankKey = 'outline' | 'small' | 'formal';
 
 function getExamPools(bankKey: BankKey) {
   const bank = banksData[bankKey];
@@ -56,9 +56,9 @@ function ExamContent() {
   const [bankKey, setBankKey] = useState<BankKey>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('exam_active_bank') as BankKey;
-      if (saved && (saved === 'combined' || saved === 'formal')) return saved;
+      if (saved && (saved === 'outline' || saved === 'small' || saved === 'formal')) return saved;
     }
-    return 'formal';
+    return 'outline';
   });
 
   const [phase, setPhase] = useState<'ready' | 'exam' | 'result'>('ready');
@@ -256,7 +256,7 @@ function ExamContent() {
 
   // ===== Ready =====
   if (phase === 'ready') {
-    const currentBankLabel = banksData[bankKey]?.label || '纲要 + 小题题库';
+    const currentBankLabel = banksData[bankKey]?.label || '中国近代史纲要';
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">

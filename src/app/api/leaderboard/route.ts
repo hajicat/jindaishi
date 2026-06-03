@@ -38,8 +38,9 @@ export async function GET() {
   `);
 
   const bankLabels: Record<string, string> = {
-    combined: '纲要+小题',
-    formal: '近代史题库',
+    outline: '近代史纲要',
+    small: '近现代史小题',
+    formal: '中国近代史',
   };
 
   const leaderboard = result.rows.map(row => ({

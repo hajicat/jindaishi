@@ -22,7 +22,7 @@ interface UserInfo {
 }
 
 type Mode = 'full' | 'drill-single' | 'drill-multi' | 'drill-tf' | 'strategy';
-type BankKey = 'combined' | 'formal';
+type BankKey = 'outline' | 'small' | 'formal';
 
 const bankKeys = Object.keys(banksData) as BankKey[];
 
@@ -66,7 +66,7 @@ export default function QuizPage() {
       const saved = localStorage.getItem('exam_active_bank') as BankKey;
       if (saved && bankKeys.includes(saved)) return saved;
     }
-    return 'formal';
+    return 'outline';
   });
   const bankData = getBankQuestions(bankKey);
   const singleData: Question[] = bankData.single;
