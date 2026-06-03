@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import quizData from '@/lib/quiz-data.json';
+import banksData from '@/lib/quiz-banks.json';
 
 interface Question {
   id: string;
@@ -11,6 +11,7 @@ interface Question {
   options?: string[];
   a: string;
   diff: string;
+  bank?: string;
 }
 
 interface UserInfo {
@@ -21,13 +22,20 @@ interface UserInfo {
 }
 
 type Mode = 'full' | 'drill-single' | 'drill-multi' | 'drill-tf' | 'strategy';
+type BankKey = 'formal' | 'knowledge';
 
-const singleData = quizData.filter(q => q.type === 'single') as Question[];
-const multiData = quizData.filter(q => q.type === 'multi') as Question[];
-const tfData = quizData.filter(q => q.type === 'tf') as Question[];
-const essayData = quizData.filter(q => q.type === 'essay') as Question[];
-const allQuestions = [...singleData, ...multiData, ...tfData, ...essayData];
-const allChoiceQuestions = [...singleData, ...multiData, ...tfData];
+const bankKeys = Object.keys(banksData) as BankKey[];
+
+function getBankQuestions(bankKey: BankKey) {
+  const bank = banksData[bankKey];
+  const empty: Question[] = [];
+  if (!bank) return { single: empty, multi: empty, tf: empty, all: empty, allChoice: empty };
+  const questions = bank.questions as Question[];
+  const single: Question[] = questions.filter(q => q.type === 'single');
+  const multi: Question[] = questions.filter(q => q.type === 'multi');
+  const tf: Question[] = questions.filter(q => q.type === 'tf');
+  return { single, multi, tf, all: questions, allChoice: [...single, ...multi, ...tf] };
+}
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -53,6 +61,20 @@ export default function QuizPage() {
   const router = useRouter();
   const [user, setUser] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [bankKey, setBankKey] = useState<BankKey>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('exam_active_bank') as BankKey;
+      if (saved && bankKeys.includes(saved)) return saved;
+    }
+    return 'formal';
+  });
+  const bankData = getBankQuestions(bankKey);
+  const singleData: Question[] = bankData.single;
+  const multiData: Question[] = bankData.multi;
+  const tfData: Question[] = bankData.tf;
+  const allQuestions: Question[] = bankData.all;
+  const allChoiceQuestions: Question[] = bankData.allChoice;
+
   const [mode, setMode] = useState<Mode>('full');
   const [masteredIds, setMasteredIds] = useState<Set<string>>(new Set());
   const [errorCounts, setErrorCounts] = useState<Record<string, number>>({});
@@ -177,7 +199,6 @@ export default function QuizPage() {
       ...shuffle(singleData),
       ...shuffle(multiData),
       ...shuffle(tfData),
-      ...shuffle(essayData),
     ]);
     setFullAnswers({});
     setFullSessionMistakes(new Set());
@@ -298,6 +319,15 @@ export default function QuizPage() {
     return multiData.filter(q => q.a.length === 2);
   }
 
+  function switchBank(key: BankKey) {
+    if (key === bankKey) return;
+    setBankKey(key);
+    localStorage.setItem('exam_active_bank', key);
+    setMode('full');
+    setDrillQuestions([]);
+    setDrillFinished(false);
+  }
+
   // ===== Render =====
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center text-gray-500">加载中...</div>;
@@ -323,6 +353,31 @@ export default function QuizPage() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 mt-4">
+        {/* Bank switcher */}
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 mb-4">
+          <div className="text-sm font-bold text-gray-700 mb-2">选择题库：</div>
+          <div className="grid grid-cols-2 gap-2">
+            {bankKeys.map(key => {
+              const bank = banksData[key];
+              const q = getBankQuestions(key);
+              const isActive = key === bankKey;
+              return (
+                <button
+                  key={key}
+                  onClick={() => switchBank(key)}
+                  className={`p-3 rounded-lg text-left transition border-2 ${isActive ? 'bg-amber-400 border-amber-500 text-white font-bold' : 'bg-white border-amber-200 text-gray-700 hover:bg-amber-100'}`}
+                >
+                  <div className="text-sm">{bank.label}</div>
+                  <div className={`text-xs mt-1 ${isActive ? 'text-amber-100' : 'text-gray-400'}`}>
+                    单选 {q.single.length} / 多选 {q.multi.length} / 判断 {q.tf.length}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <div className="text-xs text-gray-400 mt-2">两个题库的进度和错题互不影响</div>
+        </div>
+
         {/* Progress bar */}
         <div className="bg-white rounded-lg p-4 shadow-sm mb-4">
           <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
@@ -495,7 +550,6 @@ export default function QuizPage() {
       { title: '一、单项选择题', questions: fullQuestions.filter(q => q.type === 'single') },
       { title: '二、多项选择题', questions: fullQuestions.filter(q => q.type === 'multi') },
       { title: '三、判断题', questions: fullQuestions.filter(q => q.type === 'tf') },
-      { title: '四、论述/速记题', questions: fullQuestions.filter(q => q.type === 'essay') },
     ];
 
     return (

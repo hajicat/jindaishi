@@ -14,12 +14,13 @@ export async function GET() {
     SELECT u.id, u.username, u.real_name, u.class_name,
            e.score, e.total, e.single_correct, e.single_total,
            e.multi_correct, e.multi_total, e.tf_correct, e.tf_total,
+           e.bank,
            e.created_at as exam_date,
            e2.exam_count
     FROM users u
     LEFT JOIN (
       SELECT er.user_id, er.score, er.total, er.single_correct, er.single_total,
-             er.multi_correct, er.multi_total, er.tf_correct, er.tf_total, er.created_at
+             er.multi_correct, er.multi_total, er.tf_correct, er.tf_total, er.bank, er.created_at
       FROM exam_results er
       INNER JOIN (
         SELECT user_id, MAX(score) as max_score, MAX(created_at) as latest_at
@@ -36,6 +37,11 @@ export async function GET() {
     ORDER BY COALESCE(e.score, 0) DESC
   `);
 
+  const bankLabels: Record<string, string> = {
+    formal: '正式题库',
+    knowledge: '知识点题库',
+  };
+
   const leaderboard = result.rows.map(row => ({
     id: row.id as string,
     username: row.username as string,
@@ -44,11 +50,13 @@ export async function GET() {
     bestScore: (row.score as number) || 0,
     total: (row.total as number) || 80,
     singleCorrect: (row.single_correct as number) || 0,
-    singleTotal: (row.single_total as number) || 40,
+    singleTotal: (row.single_total as number) || 0,
     multiCorrect: (row.multi_correct as number) || 0,
-    multiTotal: (row.multi_total as number) || 20,
+    multiTotal: (row.multi_total as number) || 0,
     tfCorrect: (row.tf_correct as number) || 0,
-    tfTotal: (row.tf_total as number) || 20,
+    tfTotal: (row.tf_total as number) || 0,
+    bank: (row.bank as string) || '',
+    bankLabel: bankLabels[(row.bank as string) || ''] || '',
     examCount: (row.exam_count as number) || 0,
     examDate: (row.exam_date as string) || '',
   }));

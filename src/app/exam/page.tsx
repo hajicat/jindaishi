@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import quizData from '@/lib/quiz-data.json';
+import banksData from '@/lib/quiz-banks.json';
 import { Suspense } from 'react';
 
 interface Question {
@@ -12,11 +12,21 @@ interface Question {
   options?: string[];
   a: string;
   diff: string;
+  bank?: string;
 }
 
-const singlePool = quizData.filter(q => q.type === 'single') as Question[];
-const multiPool = quizData.filter(q => q.type === 'multi') as Question[];
-const tfPool = quizData.filter(q => q.type === 'tf') as Question[];
+type BankKey = 'formal' | 'knowledge';
+
+function getExamPools(bankKey: BankKey) {
+  const bank = banksData[bankKey];
+  const empty: Question[] = [];
+  if (!bank) return { singlePool: empty, multiPool: empty, tfPool: empty };
+  const questions = bank.questions as Question[];
+  const singlePool: Question[] = questions.filter(q => q.type === 'single');
+  const multiPool: Question[] = questions.filter(q => q.type === 'multi');
+  const tfPool: Question[] = questions.filter(q => q.type === 'tf');
+  return { singlePool, multiPool, tfPool };
+}
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -42,6 +52,14 @@ function ExamContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const shadowUserId = searchParams.get('shadow');
+
+  const [bankKey, setBankKey] = useState<BankKey>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('exam_active_bank') as BankKey;
+      if (saved && (saved === 'formal' || saved === 'knowledge')) return saved;
+    }
+    return 'formal';
+  });
 
   const [phase, setPhase] = useState<'ready' | 'exam' | 'result'>('ready');
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -89,10 +107,6 @@ function ExamContent() {
 
         if (answerTimes.length === 0) return;
 
-        // DEBUG: log shadow data
-        console.log('[PK Shadow] opponent answer times (first 20):', answerTimes.slice(0, 20));
-        console.log('[PK Shadow] total answers:', answerTimes.length, 'total:', data.total);
-
         // Build progress map: progressMap[s] = number of answers completed by second s
         // Max exam time = 90 min = 5400 seconds
         const maxSec = Math.min(Math.ceil(answerTimes[answerTimes.length - 1]) + 1, 5400);
@@ -106,7 +120,6 @@ function ExamContent() {
           }
           map[s] = count;
         }
-        console.log('[PK Shadow] progress map[0..30]:', map.slice(0, 31));
         shadowProgressMapRef.current = map;
       })
       .catch(() => {});
@@ -137,10 +150,6 @@ function ExamContent() {
       const map = shadowProgressMapRef.current;
       const sec = Math.min(elapsed, map.length - 1);
       const progress = map[sec] ?? map[map.length - 1];
-      // DEBUG: log first few ticks
-      if (elapsed <= 20 || progress !== shadowProgressRef.current) {
-        console.log(`[PK Shadow] elapsed=${elapsed}s, map[${sec}]=${progress}, mapLen=${map.length}`);
-      }
       if (progress !== shadowProgressRef.current) {
         shadowProgressRef.current = progress;
         setShadowProgress(progress);
@@ -150,10 +159,14 @@ function ExamContent() {
   }, [phase, shadowUserId, examStart]);
 
   function startExam() {
+    const { singlePool, multiPool, tfPool } = getExamPools(bankKey);
+    const singleCount = Math.min(40, singlePool.length);
+    const multiCount = Math.min(20, multiPool.length);
+    const tfCount = Math.min(20, tfPool.length);
     const selected = [
-      ...shuffle(singlePool).slice(0, 40).map(q => shuffleOptions(q)),
-      ...shuffle(multiPool).slice(0, 20).map(q => shuffleOptions(q)),
-      ...shuffle(tfPool).slice(0, 20).map(q => shuffleOptions(q)),
+      ...shuffle(singlePool).slice(0, singleCount).map(q => shuffleOptions(q)),
+      ...shuffle(multiPool).slice(0, multiCount).map(q => shuffleOptions(q)),
+      ...shuffle(tfPool).slice(0, tfCount).map(q => shuffleOptions(q)),
     ];
     setQuestions(selected);
     setAnswers({});
@@ -212,18 +225,20 @@ function ExamContent() {
     });
 
     const score = singleCorrect + multiCorrect + tfCorrect;
+    const total = questions.length;
 
-    setResult({ score, total: 80, singleCorrect, singleTotal, multiCorrect, multiTotal, tfCorrect, tfTotal });
+    setResult({ score, total, singleCorrect, singleTotal, multiCorrect, multiTotal, tfCorrect, tfTotal });
 
     await fetch('/api/exam', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        score, total: 80,
+        score, total,
         singleCorrect, singleTotal,
         multiCorrect, multiTotal,
         tfCorrect, tfTotal,
         details,
+        bank: bankKey,
       }),
     });
 
@@ -241,6 +256,7 @@ function ExamContent() {
 
   // ===== Ready =====
   if (phase === 'ready') {
+    const currentBankLabel = banksData[bankKey]?.label || '正式选择题题库';
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
@@ -253,7 +269,31 @@ function ExamContent() {
             <p className="text-gray-500 mb-6">模拟真实考试环境</p>
           )}
 
+          {/* Bank selector */}
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-3 mb-4 text-left">
+            <div className="text-xs text-gray-500 mb-2">当前题库：</div>
+            <div className="grid grid-cols-2 gap-2">
+              {(Object.keys(banksData) as BankKey[]).map(key => (
+                <button
+                  key={key}
+                  onClick={() => {
+                    setBankKey(key);
+                    localStorage.setItem('exam_active_bank', key);
+                  }}
+                  className={`px-3 py-2 rounded-lg text-xs font-medium transition border-2 ${
+                    key === bankKey
+                      ? 'bg-amber-400 border-amber-500 text-white'
+                      : 'bg-white border-amber-200 text-gray-600 hover:bg-amber-100'
+                  }`}
+                >
+                  {banksData[key].label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="bg-gray-50 rounded-lg p-4 text-left text-sm text-gray-600 space-y-2 mb-6">
+            <p><strong>题库：</strong>{currentBankLabel}</p>
             <p><strong>考试题型：</strong></p>
             <p>• 单项选择题 × 40</p>
             <p>• 多项选择题 × 20</p>

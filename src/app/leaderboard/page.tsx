@@ -16,6 +16,8 @@ interface LeaderboardEntry {
   multiTotal: number;
   tfCorrect: number;
   tfTotal: number;
+  bank: string;
+  bankLabel: string;
   examCount: number;
   examDate: string;
 }
@@ -107,6 +109,7 @@ export default function LeaderboardPage() {
                 <th className="py-3 px-3 w-12">排名</th>
                 <th className="py-3 px-3">姓名</th>
                 <th className="py-3 px-3">班级</th>
+                <th className="py-3 px-3 text-center">题库</th>
                 <th className="py-3 px-3 text-center">最高分</th>
                 <th className="py-3 px-3 text-center">单选</th>
                 <th className="py-3 px-3 text-center">多选</th>
@@ -136,6 +139,13 @@ export default function LeaderboardPage() {
                       {isMe && <span className="ml-1 text-xs text-blue-500">(我)</span>}
                     </td>
                     <td className="py-3 px-3 text-gray-500">{entry.className || '-'}</td>
+                    <td className="py-3 px-3 text-center">
+                      {entry.bankLabel ? (
+                        <span className={`px-2 py-0.5 rounded text-xs ${entry.bank === 'formal' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                          {entry.bankLabel}
+                        </span>
+                      ) : <span className="text-xs text-gray-400">-</span>}
+                    </td>
                     <td className="py-3 px-3 text-center">
                       <span className={`font-bold text-lg ${percent >= 60 ? 'text-green-600' : 'text-red-500'}`}>
                         {entry.bestScore}

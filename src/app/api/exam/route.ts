@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
     tfCorrect?: number;
     tfTotal?: number;
     details?: Record<string, string>;
+    bank?: string;
   };
 
   try {
@@ -28,25 +29,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '请求格式错误' }, { status: 400 });
   }
 
-  const { score, total, singleCorrect, singleTotal, multiCorrect, multiTotal, tfCorrect, tfTotal, details } = body;
+  const { score, total, singleCorrect, singleTotal, multiCorrect, multiTotal, tfCorrect, tfTotal, details, bank } = body;
 
-  if (typeof score !== 'number' || typeof total !== 'number' || total !== 80) {
+  if (typeof score !== 'number' || typeof total !== 'number' || total < 1 || total > 200) {
     return NextResponse.json({ error: '成绩数据格式错误' }, { status: 400 });
   }
 
   const db = getDb();
+
+  // Migration: add bank column if not exists
+  try {
+    await db.execute(`ALTER TABLE exam_results ADD COLUMN bank TEXT DEFAULT ''`);
+  } catch {
+    // Column already exists
+  }
+
   const id = uuidv4();
   const now = new Date().toISOString();
 
   await db.execute({
-    sql: `INSERT INTO exam_results (id, user_id, score, total, single_correct, single_total, multi_correct, multi_total, tf_correct, tf_total, details_json, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    sql: `INSERT INTO exam_results (id, user_id, score, total, single_correct, single_total, multi_correct, multi_total, tf_correct, tf_total, details_json, bank, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       id, user.id, score, total,
-      singleCorrect || 0, singleTotal || 40,
-      multiCorrect || 0, multiTotal || 20,
-      tfCorrect || 0, tfTotal || 20,
+      singleCorrect || 0, singleTotal || 0,
+      multiCorrect || 0, multiTotal || 0,
+      tfCorrect || 0, tfTotal || 0,
       JSON.stringify(details || {}),
+      bank || '',
       now,
     ],
   });
@@ -61,7 +71,7 @@ export async function GET() {
 
   const db = getDb();
   const result = await db.execute({
-    sql: 'SELECT id, score, total, single_correct, single_total, multi_correct, multi_total, tf_correct, tf_total, created_at FROM exam_results WHERE user_id = ? ORDER BY created_at DESC LIMIT 20',
+    sql: 'SELECT id, score, total, single_correct, single_total, multi_correct, multi_total, tf_correct, tf_total, bank, created_at FROM exam_results WHERE user_id = ? ORDER BY created_at DESC LIMIT 20',
     args: [user.id],
   });
 
