@@ -77,7 +77,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-lg p-8">
           <h1 className="text-2xl font-bold text-center text-gray-800 mb-2">
-            中国近代史刷题系统
+            宇宙无敌第一近代史刷题库
           </h1>
           <p className="text-center text-gray-500 mb-8">请使用管理员分配的账号登录</p>
 
