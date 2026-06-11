@@ -22,7 +22,7 @@ interface UserInfo {
 }
 
 type Mode = 'full' | 'drill-single' | 'drill-multi' | 'drill-tf' | 'strategy';
-type BankKey = 'outline' | 'small' | 'formal';
+type BankKey = 'outline' | 'small' | 'formal' | 'official';
 
 const bankKeys = Object.keys(banksData) as BankKey[];
 
@@ -358,7 +358,7 @@ export default function QuizPage() {
         {/* Bank switcher */}
         <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 mb-4">
           <div className="text-sm font-bold text-gray-700 mb-2">先选题库：</div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {bankKeys.map(key => {
               const bank = banksData[key];
               const q = getBankQuestions(key);
