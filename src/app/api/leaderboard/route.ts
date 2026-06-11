@@ -41,7 +41,7 @@ export async function GET() {
     outline: '近代史纲要',
     small: '近现代史小题',
     formal: '中国近代史',
-    official: '官方题库',
+    official: '学习通题库',
   };
 
   const leaderboard = result.rows.map(row => ({
